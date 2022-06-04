@@ -30,7 +30,7 @@ const app = express();
 export function initApi(): void {
   app.get('/', (req, res) => res.send('Healthy!'));
   app.use('/auth', authRouter);
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT ? Number(process.env.PORT) : 3000;
   app.listen(port, () => {
     log('Listening on port', port);
     preventSleep();

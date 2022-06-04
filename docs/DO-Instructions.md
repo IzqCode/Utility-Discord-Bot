@@ -13,16 +13,16 @@ These instructions also assume you have created a PostgreSQL database on Heroku,
 1. Click on your droplet, go to Access and then click "Launch Droplet Console" to connect your droplet on the web. You can SSH into your droplet manually if you want, but this is unnecessary work.
 1. Assuming you chose Ubuntu for your distribution, Git will already be installed and you will have access to `apt`. If you use another distribution, you may need to install this software in different ways (e.g. your distribution may not have APT). At the end of the day, you need to have Docker installed and running. NPM and Git are optional, but they allow you to conveniently run scripts from the Git repo. So we will make sure all three are installed.
    ```
-   apt install docker.io npm
+   apt install docker.io npm docker-compose
    ```
 1.  As previously mentioned, this is optional, but useful. If you skip this step, you must replace `npm run ...` in all future steps with whatever that script actually does.
     ```
-    git clone https://github.com/mikeyaworski/Utility-Discord-Bot.git
-    cd Utility-Discord-Bot
+    git clone https://github.com/mikeyaworski/utility-discord-bot.git
+    cd utility-discord-bot
     ```
 1.  Pull the latest Docker image.
     ```
-    cd ~/Utility-Discord-Bot
+    cd ~/utility-discord-bot
     npm run docker-pull
     ```
     Or, if you want to use a specific Docker image (other than `latest`), find the tag from https://hub.docker.com/repository/docker/mikeyaworski/utility-discord-bot and use this command, where `...` is the tag you want to use:
@@ -44,48 +44,114 @@ These instructions also assume you have created a PostgreSQL database on Heroku,
     If unfamiliar with the command line, here are instructions to create the `.env` file using vim:
 
     1. Create it on your local computer and copy the contents of the file.
-    1. In your SSH session, run `vi .env` (make sure you are inside the `Utility-Discord-Bot` folder).
+    1. In your SSH session, run `vi .env` (make sure you are inside the `utility-discord-bot` folder).
     1. Press `i` to enter Insert mode
     1. Paste. This pastes the content of the `.env` file. If on Windows WSL, you may need to right click your WSL bar, click Properties and check "Use Ctrl+Shift+C/V as Copy/Paste" first. And then use `Ctrl + Shift + V` to paste.
     1. Type `:x` to save and quit.
 
     You can use something like nano instead of vim if you struggle with the instructions above.
+1. (Optional) If you want to expose your app to the outside world over HTTPS and a custom domain, then generate an SSL certificate and run the nginx server:
+   1. Create a DNS A Record for your domain, and point it to the public IP address of your Digital Ocean Droplet.
+   1. `npm run dhparam`
+   1. Update `deploy/nginx-conf-http/nginx.conf` and `deploy/nginx-conf-https/nginx.conf` by replacing the server name `api.utilitydiscordbot.com` (and possibly port number) with your own.
+   1. Update `deploy/docker-compose.yml` by replacing `api.utilitydiscordbot.com` and `michael@mikeyaworski.com` with your own.
 1.  Start the bot:
     ```
     npm run start:docker
     ```
+    Or, if you are running the nginx server mentioned in the previous step, instead start the bot with:
+    ```
+    npm run start:docker-compose
+    ```
 1. View logs to see if everything is successful:
    ```
-   npm run logs:docker
+   npm run logs:bot
    ```
    Use `Ctrl + C` to get out of the logs.
 
+   If you are running the nginx server with HTTPS, then you may also want to view the logs of your nginx servers or certbots. You can do that with:
+   ```
+   docker logs certbot -f
+   docker logs http-server -f
+   docker logs https-server -f
+   ```
+1. (Optional) If you enabled HTTPS, then you should also create a cronjob to run the `deploy/renew-ssl.sh` script. This will both renew the SSL certificate and restart the https nginx server, so that the server will use the new certificate.
+   1. Type `pwd` and observe the result.
+   1. Ensure that in `deploy/renew-ssl.sh`, the `cd` command uses the same path as your output from `pwd`.
+   1. Type `crontab -e` and choose whichever option you want to open a text editor.
+   1. Add this to the bottom of the file:
+      ```
+      0 12 * * * /your_pwd_path/deploy/renew-ssl.sh >> /var/log/cron.log 2>&1
+      ```
+      This runs the renewal script on a daily basis.
+
 ## Restarting
 
+Without HTTPS:
+
 ```
-cd ~/Utility-Discord-Bot
+cd ~/utility-discord-bot
 npm run restart:docker
+```
+
+With HTTPS:
+
+```
+cd ~/utility-discord-bot
+npm run docker-pull
+npm run restart:docker-compose
 ```
 
 ## Updating
 
+Without HTTPS:
+
 ```
-cd ~/Utility-Discord-Bot
+cd ~/utility-discord-bot
 npm run docker-pull
 npm run restart:docker
 ```
 
-## Stopping
+With HTTPS:
 
 ```
-cd ~/Utility-Discord-Bot
+cd ~/utility-discord-bot
+npm run docker-pull
+npm run restart:docker-compose
+```
+
+## Stopping
+
+Without HTTPS:
+
+```
+cd ~/utility-discord-bot
 npm run stop:docker
+```
+
+With HTTPS:
+
+```
+cd ~/utility-discord-bot
+npm run stop:docker-compose
 ```
 
 ## Reading Logs
 
 ```
-cd ~/Utility-Discord-Bot
-npm run logs:docker
+cd ~/utility-discord-bot
+npm run logs:bot
 ```
 Use `Ctrl + C` to get out of the logs.
+
+If you are running the nginx server with HTTPS, then you may also want to view the logs of your nginx servers or certbots. You can do that with:
+```
+npm run logs:cert
+npm run logs:http
+npm run logs:https
+```
+
+You may also want to read the cronjob logs for renewing your SSL certificate. You can do that with:
+```
+npm run logs:cron
+```
